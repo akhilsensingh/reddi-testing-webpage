@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Chat integration – Script tag tester</title>
+    <link rel="stylesheet" href="/src/main.css" />
+  </head>
+  <body>
+    <div class="app">
+      <header class="header">
+        <h1>Chat integration script tag tester</h1>
+        <p class="subtitle">Paste your full <code>&lt;script&gt;</code> tag below. Apply &amp; refresh to load the chat integration.</p>
+      </header>
+
+      <section class="controls">
+        <label for="script-tag">Full script tag</label>
+        <textarea
+          id="script-tag"
+          rows="12"
+          placeholder="Paste your full script tag here..."
+          spellcheck="false"
+       ></textarea>
+        <div class="button-row">
+          <button type="button" id="apply-refresh">Apply &amp; refresh page</button>
+        </div>
+        <p class="hint">The tag is stored in <code>localStorage</code>. After applying, the page reloads and the chat widget loads from your tag.</p>
+      </section>
+
+      <section class="demo">
+        <p>Your page content here. The chat widget will load according to the script tag above.</p>
+      </section>
+    </div>
+
+    <div id="chat-script-container"></div>
+
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
