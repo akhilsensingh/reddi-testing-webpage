@@ -27,9 +27,9 @@
   let companyDescription = "I'm Verizon's Smart Assistant";
   let dataCompanyEnv = dataCompanyEnvFromScript;
 
-  const apiEndpoint = "https://webhook.dev.phinite.ai/api/v1/ai/chat_integration/conversations"; // constant API
+  const apiEndpoint = "https://app.phinite.ai/api/v1/ai/chat_integration/conversations"; // constant API
 
-  const continueEndpoint = `https://webhook.dev.phinite.ai/api/v1/ai/chat_integration/conversations`;
+  const continueEndpoint = `https://app.phinite.ai/api/v1/ai/chat_integration/conversations`;
 
   // Page origin for API requests (Origin is a forbidden header in fetch, so we send it as X-Origin)
   const pageOrigin = typeof window !== "undefined" ? window.location.origin : "";
@@ -38,7 +38,7 @@
     const encodedIntegrationId = encodeURIComponent(integrationIdParam || "");
     const encodedEnv = encodeURIComponent(envParam || "development");
     const encodedOrigin = encodeURIComponent(originParam || "");
-    const configEndpoint = `https://webhook.dev.phinite.ai/api/v1/chat-bot/${encodedIntegrationId}/${encodedEnv}/${encodedOrigin}`;
+    const configEndpoint = `https://app.phinite.ai/api/v1/chat-bot/${encodedIntegrationId}/${encodedEnv}/${encodedOrigin}`;
 
     const response = await fetch(configEndpoint, {
       method: "GET",
@@ -675,6 +675,83 @@
     }
     .chat-bubble--user .chat-bubble-time {
       text-align: right;
+    }
+    .chat-approval {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-top: 4px;
+    }
+    .chat-bubble-text + .chat-approval,
+    .chat-media-stack + .chat-approval {
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 1px solid #E0E2E7;
+    }
+    .chat-approval-kicker {
+      font-family: Inter, sans-serif;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: #8D8D96;
+    }
+    .chat-approval-title {
+      font-family: Inter, sans-serif;
+      font-size: 14px;
+      font-weight: 600;
+      line-height: 1.4;
+      color: #1a1a1a;
+    }
+    .chat-approval-args {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 4px 10px;
+      margin: 0;
+      padding: 8px 10px;
+      background: #F7F7F8;
+      border-radius: 8px;
+    }
+    .chat-approval-args dt {
+      margin: 0;
+      font-family: Inter, sans-serif;
+      font-size: 12px;
+      font-weight: 500;
+      color: #8D8D96;
+    }
+    .chat-approval-args dd {
+      margin: 0;
+      font-family: Inter, sans-serif;
+      font-size: 12px;
+      font-weight: 500;
+      color: #1a1a1a;
+      word-break: break-word;
+    }
+    .chat-approval-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .chat-approval-btn {
+      appearance: none;
+      border: 1px solid transparent;
+      border-radius: 8px;
+      padding: 7px 14px;
+      font-family: Inter, sans-serif;
+      font-size: 13px;
+      font-weight: 600;
+      line-height: 1.2;
+      cursor: pointer;
+    }
+    .chat-approval-btn:hover:not(:disabled) {
+      filter: brightness(0.94);
+    }
+    .chat-approval-btn:disabled {
+      cursor: default;
+      opacity: 0.45;
+    }
+    .chat-approval-btn.is-chosen:disabled {
+      opacity: 1;
     }
     .chat-message-block {
       display: flex;
@@ -2435,6 +2512,7 @@
               status: data.status,
               requires_input: data.requires_input,
             };
+            if (data.approval_request) startOptions.approvalRequest = data.approval_request;
             if (startMedia.images.length) startOptions.images = startMedia.images;
             if (startMedia.audio.length) startOptions.audio = startMedia.audio;
             if (startMedia.video.length) startOptions.video = startMedia.video;
@@ -2570,6 +2648,114 @@
     return isToday ? "Today " + timeStr : date.toLocaleDateString() + " " + timeStr;
   }
 
+  function approvalButtonLabels(request) {
+    if (!request || !Array.isArray(request.button)) return [];
+    return request.button
+      .map(function (label) {
+        return typeof label === "string" ? label.trim() : "";
+      })
+      .filter(Boolean);
+  }
+
+  function formatToolArgValue(value) {
+    if (value == null) return "";
+    if (typeof value === "string") return value;
+    try {
+      return JSON.stringify(value);
+    } catch (err) {
+      return String(value);
+    }
+  }
+
+  function rememberApprovalChoice(request, label) {
+    try {
+      var history = JSON.parse(localStorage.getItem("chat_history") || "[]");
+      for (var i = history.length - 1; i >= 0; i--) {
+        var opts = history[i].options;
+        if (!opts || !opts.approvalRequest) continue;
+        if (request.approval_id) {
+          if (opts.approvalRequest.approval_id !== request.approval_id) continue;
+        } else if (opts.approvalChoice) {
+          continue;
+        }
+        opts.approvalChoice = label;
+        localStorage.setItem("chat_history", JSON.stringify(history));
+        return;
+      }
+    } catch (err) {}
+  }
+
+  function appendApprovalRequest(messageBubble, request, choice) {
+    var labels = approvalButtonLabels(request);
+    if (!labels.length) return;
+
+    var buttonTextColor = isDarkColor(brandColor) ? "#ffffff" : "#1a1a1a";
+    var card = document.createElement("div");
+    card.className = "chat-approval";
+
+    var kicker = document.createElement("div");
+    kicker.className = "chat-approval-kicker";
+    kicker.textContent = "Approval needed";
+
+    var title = document.createElement("div");
+    title.className = "chat-approval-title";
+    var who = request.requested_by ? String(request.requested_by) : "An agent";
+    var tool = request.tool_name ? String(request.tool_name) : "a tool";
+    title.textContent = who + " wants to run " + tool;
+    card.appendChild(kicker);
+    card.appendChild(title);
+
+    var args = request.tool_args;
+    if (args && typeof args === "object") {
+      var keys = Object.keys(args);
+      if (keys.length) {
+        var list = document.createElement("dl");
+        list.className = "chat-approval-args";
+        keys.forEach(function (key) {
+          var dt = document.createElement("dt");
+          dt.textContent = key;
+          var dd = document.createElement("dd");
+          dd.textContent = formatToolArgValue(args[key]);
+          list.appendChild(dt);
+          list.appendChild(dd);
+        });
+        card.appendChild(list);
+      }
+    }
+
+    var actions = document.createElement("div");
+    actions.className = "chat-approval-actions";
+    labels.forEach(function (label, index) {
+      var btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "chat-approval-btn" + (index === 0 ? " chat-approval-btn--primary" : "");
+      btn.textContent = label;
+      btn.style.borderColor = brandColor;
+      if (index === 0) {
+        btn.style.background = brandColor;
+        btn.style.color = buttonTextColor;
+      } else {
+        btn.style.background = "#ffffff";
+        btn.style.color = brandColor;
+      }
+      if (choice) {
+        btn.disabled = true;
+        if (choice === label) btn.classList.add("is-chosen");
+      }
+      btn.addEventListener("click", function () {
+        if (btn.disabled) return;
+        var all = actions.querySelectorAll("button");
+        for (var i = 0; i < all.length; i++) all[i].disabled = true;
+        btn.classList.add("is-chosen");
+        rememberApprovalChoice(request, label);
+        sendMessage(label);
+      });
+      actions.appendChild(btn);
+    });
+    card.appendChild(actions);
+    messageBubble.appendChild(card);
+  }
+
   function addMessage(text, sender = "bot", options) {
     options = options || {};
     var images = Array.isArray(options.images) ? options.images : [];
@@ -2655,6 +2841,10 @@
       });
     }
 
+    if (sender === "bot" && options.approvalRequest) {
+      appendApprovalRequest(messageBubble, options.approvalRequest, options.approvalChoice || "");
+    }
+
     bubbleRow.appendChild(messageBubble);
 
     messageBlock.appendChild(senderRow);
@@ -2681,7 +2871,7 @@
     }
   }
 
-  async function sendMessage() {
+  async function sendMessage(presetText) {
     // Get current input elements
     const currentInputBox = document.getElementById("chatbot-input");
     const currentSendBtn = document.getElementById("chatbot-send");
@@ -2691,8 +2881,9 @@
       return;
     }
 
-    const userMessage = currentInputBox.value.trim();
-    const filesToSend = pendingAttachments.slice();
+    const fromApproval = typeof presetText === "string";
+    const userMessage = fromApproval ? presetText.trim() : currentInputBox.value.trim();
+    const filesToSend = fromApproval ? [] : pendingAttachments.slice();
     if (!userMessage && filesToSend.length === 0) return;
 
     // Disable composer while sending
@@ -2700,9 +2891,11 @@
 
     var userMsgOptions = filesToSend.length ? filesToMediaOptions(filesToSend) : {};
     addMessage(userMessage, "user", userMsgOptions);
-    currentInputBox.value = "";
-    pendingAttachments = [];
-    renderAttachmentPreview();
+    if (!fromApproval) {
+      currentInputBox.value = "";
+      pendingAttachments = [];
+      renderAttachmentPreview();
+    }
     const sessionId = localStorage.getItem("session_id");
 
     // Add loading animation
@@ -2908,7 +3101,12 @@
               throw new Error(parsed.error);
             }
 
-            if (parsed.response || parsed.status || parsed.requires_input !== undefined) {
+            if (
+              parsed.response ||
+              parsed.status ||
+              parsed.requires_input !== undefined ||
+              parsed.approval_request
+            ) {
               const existingLoading = chatBody.querySelector(".loading-container");
               if (existingLoading) existingLoading.remove();
 
@@ -2928,7 +3126,8 @@
                   media.video.length > 0 ||
                   media.documents.length > 0;
 
-                if (responseText.trim() !== "" || hasMedia) {
+                var hasApproval = approvalButtonLabels(parsed.approval_request).length > 0;
+                if (responseText.trim() !== "" || hasMedia || hasApproval) {
                   var msgOptions = {};
                   if (media.images.length > 0) msgOptions.images = media.images;
                   if (media.audio.length > 0) msgOptions.audio = media.audio;
@@ -2937,6 +3136,7 @@
                   if (parsed.status) msgOptions.status = parsed.status;
                   if (parsed.requires_input !== undefined)
                     msgOptions.requires_input = parsed.requires_input;
+                  if (hasApproval) msgOptions.approvalRequest = parsed.approval_request;
                   addMessage(responseText, "bot", msgOptions);
                   addedMessage = true;
                 }
@@ -2962,6 +3162,7 @@
               parsed.status === "completed" ||
               parsed.requires_input === true ||
               parsed.status === "waiting_for_input" ||
+              parsed.status === "waiting_for_confirmation" ||
               parsed.status === "transferred";
 
             if (isTurnEnd) {
@@ -3115,6 +3316,7 @@
           status: data.status,
           requires_input: data.requires_input,
         };
+        if (data.approval_request) restartOptions.approvalRequest = data.approval_request;
         if (restartMedia.images.length) restartOptions.images = restartMedia.images;
         if (restartMedia.audio.length) restartOptions.audio = restartMedia.audio;
         if (restartMedia.video.length) restartOptions.video = restartMedia.video;
