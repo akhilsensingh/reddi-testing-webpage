@@ -5,6 +5,8 @@
  */
 
 const STORAGE_KEY = 'chat-integration-script-tag';
+const MODE_KEY = 'chat-integration-mode';
+const LOCAL_SCRIPT = '/index.js';
 
 const DEFAULT_SCRIPT_TAG = `<script
   src="https://storage.googleapis.com/phinite-public/website/dev/index.js"
@@ -46,11 +48,25 @@ function setStoredScriptTag(tag) {
   } catch (_) {}
 }
 
+function getMode() {
+  try {
+    return localStorage.getItem(MODE_KEY) === 'developer' ? 'developer' : 'tester';
+  } catch (_) {
+    return 'tester';
+  }
+}
+
+function setMode(mode) {
+  try {
+    localStorage.setItem(MODE_KEY, mode);
+  } catch (_) {}
+}
+
 /**
  * Parse script tag HTML string and inject a real script element (so it executes).
  * Scripts added via innerHTML do not run; we must create an element and copy src + attributes.
  */
-function injectChatScriptFromTag(tagHtml) {
+function injectChatScriptFromTag(tagHtml, mode) {
   const container = document.getElementById('chat-script-container');
   if (!container) return;
 
@@ -60,39 +76,83 @@ function injectChatScriptFromTag(tagHtml) {
   if (!parsedScript) return;
 
   const script = document.createElement('script');
-  if (parsedScript.src) script.src = parsedScript.src;
   script.async = true;
 
   for (const attr of parsedScript.attributes) {
+    if (mode === 'developer' && attr.name === 'src') continue;
     script.setAttribute(attr.name, attr.value);
   }
 
+  if (mode === 'developer') script.src = LOCAL_SCRIPT + '?t=' + Date.now();
+
   container.appendChild(script);
+}
+
+function applyModeCopy(mode) {
+  const subtitle = document.getElementById('subtitle');
+  const sourceLine = document.getElementById('source-line');
+  const hint = document.querySelector('.hint');
+  const testerTab = document.getElementById('mode-tester');
+  const developerTab = document.getElementById('mode-developer');
+  const isDeveloper = mode === 'developer';
+
+  testerTab.setAttribute('aria-selected', String(!isDeveloper));
+  developerTab.setAttribute('aria-selected', String(isDeveloper));
+
+  subtitle.textContent = isDeveloper
+    ? 'Paste the same script tag. Apply & refresh to run index.js from this repo.'
+    : 'Paste your full script tag below. Apply & refresh to load the chat integration.';
+
+  sourceLine.innerHTML = isDeveloper
+    ? 'Loads <code>public/index.js</code>. Attributes on the tag still apply. The src in the tag is ignored.'
+    : 'Loads <code>src</code> from the tag above.';
+
+  hint.innerHTML = isDeveloper
+    ? 'Edit <code>public/index.js</code>, then apply again to see the change. The tag stays in <code>localStorage</code>.'
+    : 'The tag is stored in <code>localStorage</code>. After applying, the page reloads and the chat widget loads from your tag.';
+}
+
+function saveTagOrWarn(textarea, fallback) {
+  const tag = textarea.value.trim();
+  if (!tag) {
+    textarea.value = fallback;
+    return false;
+  }
+  if (!tag.includes('<script') || !tag.includes('</script>')) {
+    alert('Please enter a valid script tag (must contain <script ... </script>).');
+    return false;
+  }
+  setStoredScriptTag(tag);
+  return true;
 }
 
 function init() {
   const textarea = document.getElementById('script-tag');
   const applyBtn = document.getElementById('apply-refresh');
+  const mode = getMode();
 
   const currentTag = getStoredScriptTag();
   textarea.value = currentTag;
   textarea.placeholder = 'Paste your full <script>...</script> tag here...';
-
-  injectChatScriptFromTag(currentTag);
+  applyModeCopy(mode);
+  injectChatScriptFromTag(currentTag, mode);
 
   applyBtn.addEventListener('click', () => {
-    const tag = textarea.value.trim();
-    if (!tag) {
-      textarea.value = currentTag;
-      return;
-    }
-    if (!tag.includes('<script') || !tag.includes('</script>')) {
-      alert('Please enter a valid script tag (must contain <script ... </script>).');
-      return;
-    }
-    setStoredScriptTag(tag);
+    if (!saveTagOrWarn(textarea, currentTag)) return;
     window.location.reload();
   });
+
+  for (const [id, nextMode] of [
+    ['mode-tester', 'tester'],
+    ['mode-developer', 'developer'],
+  ]) {
+    document.getElementById(id).addEventListener('click', () => {
+      if (getMode() === nextMode) return;
+      if (!saveTagOrWarn(textarea, currentTag)) return;
+      setMode(nextMode);
+      window.location.reload();
+    });
+  }
 }
 
 init();

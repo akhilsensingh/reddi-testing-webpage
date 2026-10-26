@@ -35,6 +35,40 @@ body {
   font-size: 0.95rem;
 }
 
+.mode-switch {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  margin-bottom: 1rem;
+  padding: 4px;
+  background: #e6e6e6;
+  border-radius: 10px;
+}
+
+.mode-tab {
+  border: 0;
+  border-radius: 8px;
+  padding: 0.55rem 0.75rem;
+  font: inherit;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #444;
+  background: transparent;
+  cursor: pointer;
+}
+
+.mode-tab[aria-selected="true"] {
+  color: #156ab0;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+}
+
+.source-line {
+  margin: -0.15rem 0 0.65rem;
+  font-size: 0.85rem;
+  color: #555;
+}
+
 code {
   font-family: ui-monospace, monospace;
   font-size: 0.9em;

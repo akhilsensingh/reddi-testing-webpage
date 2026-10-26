@@ -10,11 +10,17 @@
     <div class="app">
       <header class="header">
         <h1>Chat integration script tag tester</h1>
-        <p class="subtitle">Paste your full <code>&lt;script&gt;</code> tag below. Apply &amp; refresh to load the chat integration.</p>
+        <p class="subtitle" id="subtitle">Paste your full <code>&lt;script&gt;</code> tag below. Apply &amp; refresh to load the chat integration.</p>
       </header>
+
+      <div class="mode-switch" role="tablist" aria-label="Where index.js loads from">
+        <button type="button" class="mode-tab" id="mode-tester" role="tab" aria-selected="true">Tester</button>
+        <button type="button" class="mode-tab" id="mode-developer" role="tab" aria-selected="false">Developer</button>
+      </div>
 
       <section class="controls">
         <label for="script-tag">Full script tag</label>
+        <p class="source-line" id="source-line"></p>
         <textarea
           id="script-tag"
           rows="12"
